@@ -1610,8 +1610,13 @@ def eastmoney_stock_info(code: str) -> dict:
         "secid": f"{market_code}.{code}",
     }
     headers = {"User-Agent": UA}
-    r = em_get(url, params=params, headers=headers, timeout=10)
-    d = r.json().get("data", {})
+    r = requests.get(url, params=params, headers=headers, timeout=10)
+    resp = r.json()
+    d = resp.get("data") if isinstance(resp, dict) else {}
+    if not d:
+        return {"code": code, "name": "", "industry": "", "total_shares": 0,
+                "float_shares": 0, "mcap": 0, "float_mcap": 0, "list_date": "", "price": 0}
+>>>>>>> f09bbaa (fix: eastmoney_stock_info guard against null data response)
     return {
         "code": d.get("f57", ""),
         "name": d.get("f58", ""),
