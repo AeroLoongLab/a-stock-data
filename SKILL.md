@@ -1842,13 +1842,18 @@ def full_valuation(code: str) -> dict:
     resp = urllib.request.urlopen(req, timeout=10)
     data = resp.read().decode("gbk")
     vals = data.split('"')[1].split("~")
+    if len(vals) < 53:
+        raise ValueError(f"腾讯API返回字段不足: {len(vals)}, 期望53")
     price = float(vals[3])
     mcap = float(vals[44])
     pe_ttm = float(vals[39]) if vals[39] else 0
     pb = float(vals[46]) if vals[46] else 0
 
     # 2. 机构一致预期（直连同花顺）
-    df = ths_eps_forecast(code)
+    try:
+        df = ths_eps_forecast(code)
+    except Exception:
+        df = pd.DataFrame()
     eps_cur = eps_next = None
     analyst_count = 0
     if not df.empty and len(df.columns) >= 3:
