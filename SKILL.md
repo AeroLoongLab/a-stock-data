@@ -519,7 +519,7 @@ def ths_eps_forecast(code: str) -> pd.DataFrame:
     }
     r = requests.get(url, headers=headers, timeout=15)
     r.encoding = "gbk"
-    dfs = pd.read_html(StringIO(r.text))
+    dfs = pd.read_html(StringIO(r.text), flavor="html5lib")
     # 找含"每股收益"的表格
     for df in dfs:
         cols = [str(c) for c in df.columns]
