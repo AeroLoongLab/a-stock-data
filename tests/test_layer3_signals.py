@@ -67,9 +67,34 @@ def extract_function(name: str) -> callable:
             "pd": __import__("pandas"),
             "datetime": __import__("datetime"),
             "Path": __import__("pathlib").Path,
+            "time": __import__("time"),
+            "random": __import__("random"),
             "UA": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         }
         ns.update(_func_cache)
+        # Inject em_get BEFORE exec so function bodies can reference it at definition time.
+        if "em_get" not in ns:
+            import time as _time, random as _random
+            import requests as _requests
+            _session = _requests.Session()
+            _session.headers.update({"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"})
+            _em_last_call = [0.0]
+            def em_get(url, params=None, headers=None, timeout=15, **kwargs):
+                wait = 1.0 - (_time.time() - _em_last_call[0])
+                if wait > 0:
+                    _time.sleep(wait + _random.uniform(0.1, 0.5))
+                try:
+                    return _session.get(url, params=params, headers=headers, timeout=timeout, **kwargs)
+                except Exception as e:
+                    class _FakeResp:
+                        status_code = 0
+                        def raise_for_status(self): raise e
+                        def json(self): return {}
+                    return _FakeResp()
+                finally:
+                    _em_last_call[0] = _time.time()
+            ns["em_get"] = em_get
+            ns["_em_last_call"] = _em_last_call
         exec(full_code, ns)
         _func_cache[name] = ns[name]
         return ns[name]

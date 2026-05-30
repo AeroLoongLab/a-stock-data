@@ -57,8 +57,30 @@ def extract_function(name: str):
             "pd": __import__("pandas"),
             "datetime": __import__("datetime"),
             "Path": __import__("pathlib").Path,
+            "time": __import__("time"),
+            "random": __import__("random"),
             "UA": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         }
+        # Inject em_get for eastmoney-using functions
+        import time as _time, random as _random, requests as _requests
+        _session = _requests.Session()
+        _session.headers.update({"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"})
+        _em_last_call = [0.0]
+        def em_get(url, params=None, headers=None, timeout=15, **kwargs):
+            wait = 1.0 - (_time.time() - _em_last_call[0])
+            if wait > 0:
+                _time.sleep(wait + _random.uniform(0.1, 0.5))
+            try:
+                return _session.get(url, params=params, headers=headers, timeout=timeout, **kwargs)
+            except Exception as e:
+                class _FakeResp:
+                    status_code = 0
+                    def raise_for_status(self): raise e
+                    def json(self): return {}
+                return _FakeResp()
+            finally:
+                _em_last_call[0] = _time.time()
+        ns["em_get"] = em_get
         exec(full_code, ns)
         return ns[name]
 
