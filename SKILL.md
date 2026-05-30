@@ -405,7 +405,8 @@ def baidu_kline_with_ma(code: str, start_time: str = "") -> dict:
     result = d.get("Result", {})
     md = result.get("newMarketData", {})
     keys = md.get("keys", [])  # includes: ma5avgprice, ma10avgprice, ma20avgprice
-    rows = md.get("marketData", "").split(";")
+    market_data = md.get("marketData", "")
+    rows = market_data.split(";") if isinstance(market_data, str) else []
     return {"keys": keys, "rows": rows}
 
 # 用法
@@ -984,8 +985,9 @@ def dragon_tiger_board(code: str, trade_date: str, look_back: int = 30) -> dict:
 
     # 3. 机构买卖统计（从买卖席位明细中筛选 OPERATEDEPT_CODE="0" 即机构专用席位）
     institution = {"buy_amt": 0, "sell_amt": 0, "net_amt": 0}
-    if records:
-        for detail_data, side in [(buy_data, "buy"), (sell_data, "sell")]:
+    if not records:
+        return {"records": records, "seats": seats, "institution": institution}
+    for detail_data, side in [(buy_data, "buy"), (sell_data, "sell")]:
             for row in detail_data:
                 if str(row.get("OPERATEDEPT_CODE", "")) == "0":
                     amt = (row.get("BUY") or 0) if side == "buy" else (row.get("SELL") or 0)
