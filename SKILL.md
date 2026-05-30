@@ -984,14 +984,15 @@ def dragon_tiger_board(code: str, trade_date: str, look_back: int = 30) -> dict:
 
     # 3. 机构买卖统计（从买卖席位明细中筛选 OPERATEDEPT_CODE="0" 即机构专用席位）
     institution = {"buy_amt": 0, "sell_amt": 0, "net_amt": 0}
-    for detail_data, side in [(buy_data, "buy"), (sell_data, "sell")]:
-        for row in detail_data:
-            if str(row.get("OPERATEDEPT_CODE", "")) == "0":
-                amt = (row.get("BUY") or 0) if side == "buy" else (row.get("SELL") or 0)
-                if side == "buy":
-                    institution["buy_amt"] += amt
-                else:
-                    institution["sell_amt"] += amt
+    if records:
+        for detail_data, side in [(buy_data, "buy"), (sell_data, "sell")]:
+            for row in detail_data:
+                if str(row.get("OPERATEDEPT_CODE", "")) == "0":
+                    amt = (row.get("BUY") or 0) if side == "buy" else (row.get("SELL") or 0)
+                    if side == "buy":
+                        institution["buy_amt"] += amt
+                    else:
+                        institution["sell_amt"] += amt
     institution["buy_amt"] = round(institution["buy_amt"] / 10000, 1)
     institution["sell_amt"] = round(institution["sell_amt"] / 10000, 1)
     institution["net_amt"] = round(institution["buy_amt"] - institution["sell_amt"], 1)
