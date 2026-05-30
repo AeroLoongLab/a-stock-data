@@ -1454,7 +1454,9 @@ def eastmoney_stock_news(code: str, page_size: int = 20) -> list[dict]:
     d = json.loads(json_str)
 
     rows = []
-    articles = d.get("result", {}).get("cmsArticleWebOld", {}).get("list", [])
+    articles = d.get("result", {}).get("cmsArticleWebOld", [])
+    if not isinstance(articles, list):
+        articles = articles.get("list", [])
     for a in articles:
         rows.append({
             "title": re.sub(r'<[^>]+>', '', a.get("title", "")),
