@@ -1,36 +1,69 @@
 """
 Layer 6 fundamentals smoke tests — eastmoney_stock_info, sina_financial_report
 """
+import re
+import pytest
 from pathlib import Path
 
-import pytest
+SKILL_PATH = Path(__file__).parent.parent / "SKILL.md"
 
 
-def extract_function(skill_md: Path, func_name: str):
-    """从 SKILL.md 提取函数定义并执行，返回函数对象。"""
-    content = skill_md.read_text()
-    match = re.search(
-        rf"def {func_name}\(.*?(?=\n(?:### |## Layer|\n#))",
-        content,
-        re.DOTALL,
-    )
-    if not match:
-        pytest.skip(f"Could not find {func_name} in SKILL.md")
-    ns = {
-        "requests": __import__("requests"),
-        "re": __import__("re"),
-        "json": __import__("json"),
-        "datetime": __import__("datetime"),
-        "uuid": __import__("uuid"),
-    }
-    exec(match.group(0), ns)  # noqa: S307
-    return ns[func_name]
+def extract_function(name: str):
+    """Extract and exec a function from SKILL.md code block. Returns function object."""
+    content = SKILL_PATH.read_text(encoding="utf-8")
+
+    parts = re.split(r'```python', content)
+    for i in range(1, len(parts)):
+        block = parts[i]
+        if f'\ndef {name}(' not in block and f'\nasync def {name}(' not in block:
+            continue
+        end = block.find('```')
+        if end == -1:
+            raise ValueError(f"Function {name}: code block not closed")
+        code = block[:end]
+
+        func_match = re.search(rf'def {name}\(', code)
+        if not func_match:
+            func_match = re.search(rf'async def {name}\(', code)
+
+        code_before_func = code[:func_match.start()]
+        func_and_after = code[func_match.start():]
+
+        lines = func_and_after.split('\n')
+        func_lines = []
+        func_started = False
+
+        for line in lines:
+            stripped = line.strip()
+            if not func_started:
+                func_lines.append(line)
+                if stripped.startswith('def ') or stripped.startswith('async def '):
+                    func_started = True
+                continue
+            if not stripped:
+                func_lines.append(line)
+                continue
+            indent = len(line) - len(line.lstrip())
+            if (stripped.startswith('def ') or stripped.startswith('async def ')) and indent == 0:
+                break
+            func_lines.append(line)
+
+        full_code = code_before_func + '\n'.join(func_lines)
+
+        ns = {
+            "requests": __import__("requests"),
+            "pd": __import__("pandas"),
+            "datetime": __import__("datetime"),
+            "Path": __import__("pathlib").Path,
+            "UA": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        }
+        exec(full_code, ns)
+        return ns[name]
 
 
 def test_eastmoney_stock_info_smoke():
     """东财个股基本面返回dict含code/name/industry字段"""
-    skill_md = Path("/home/huhaoran/workspace/stock/a-stock-data/SKILL.md")
-    func = extract_function(skill_md, "eastmoney_stock_info")
+    func = extract_function("eastmoney_stock_info")
     result = func("600519")
     assert isinstance(result, dict)
     assert "code" in result
@@ -40,7 +73,6 @@ def test_eastmoney_stock_info_smoke():
 
 def test_sina_financial_report_smoke():
     """新浪财报三表返回list[dict]"""
-    skill_md = Path("/home/huhaoran/workspace/stock/a-stock-data/SKILL.md")
-    func = extract_function(skill_md, "sina_financial_report")
+    func = extract_function("sina_financial_report")
     result = func("600519", "lrb")
     assert isinstance(result, list)
