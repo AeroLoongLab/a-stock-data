@@ -1,0 +1,892 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "a-stock-data",
+  "description": "A股全栈数据工具包 - 28个端点函数索引",
+  "version": "3.1",
+  "layers": [
+    {
+      "id": 1,
+      "name": "行情层",
+      "description": "实时行情，不封IP",
+      "endpoints": [
+        {
+          "name": "mootdx_bars",
+          "layer": 1,
+          "description": "mootdx K线数据（TCP 7709，连通达信服务器）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "category": {
+                "type": "integer",
+                "description": "K线周期（4=日线，5=周线，6=月线，7=1分钟，8=5分钟，9=15分钟，10=30分钟，11=60分钟）",
+                "default": 4
+              },
+              "offset": {
+                "type": "integer",
+                "description": "返回数量",
+                "default": 10
+              }
+            },
+            "required": ["symbol"]
+          },
+          "returns": {
+            "type": "DataFrame",
+            "fields": ["open", "close", "high", "low", "vol", "amount", "datetime"]
+          },
+          "file_reference": "SKILL.md#L180",
+          "data_source": "mootdx TCP",
+          "auth_required": false
+        },
+        {
+          "name": "tencent_quote",
+          "layer": 1,
+          "description": "腾讯财经实时行情（HTTP GBK，不封IP）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "codes": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "6位股票代码列表，支持指数（000001/000300/399006）和ETF（510050/510300）"
+              }
+            },
+            "required": ["codes"]
+          },
+          "returns": {
+            "type": "dict[str, dict]",
+            "fields": ["name", "price", "pe_ttm", "pb", "mcap_yi", "float_mcap_yi", "turnover_pct", "limit_up", "limit_down", "change_amt", "change_pct", "high", "low", "last_close", "open", "amplitude_pct", "vol_ratio", "pe_static"]
+          },
+          "file_reference": "SKILL.md#L208",
+          "data_source": "腾讯财经 HTTP",
+          "auth_required": false
+        },
+        {
+          "name": "baidu_kline_with_ma",
+          "layer": 1,
+          "description": "百度股市通K线（自带MA5/MA10/MA20均价）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "start_time": {
+                "type": "string",
+                "description": "起始时间（空字符串则返回最近）",
+                "default": ""
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "dict",
+            "fields": ["keys (含 ma5avgprice, ma10avgprice, ma20avgprice)", "rows (time, open, close, high, low, volume, amount)"]
+          },
+          "file_reference": "SKILL.md#L310",
+          "data_source": "百度股市通 HTTP",
+          "auth_required": false
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "研报层",
+      "description": "研报检索与下载",
+      "endpoints": [
+        {
+          "name": "eastmoney_reports",
+          "layer": 2,
+          "description": "东财研报列表（reportapi.eastmoney.com，免费无key）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "max_pages": {
+                "type": "integer",
+                "description": "最大页数",
+                "default": 5
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["title", "publishDate", "orgSName", "infoCode", "predictThisYearEps", "predictNextYearEps", "predictNextTwoYearEps", "emRatingName", "indvInduName"]
+          },
+          "file_reference": "SKILL.md#L361",
+          "data_source": "东财 reportapi",
+          "auth_required": false
+        },
+        {
+          "name": "download_pdf",
+          "layer": 2,
+          "description": "下载研报PDF",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "record": {
+                "type": "dict",
+                "description": "eastmoney_reports 返回的记录，需包含 infoCode"
+              },
+              "target_dir": {
+                "type": "string",
+                "description": "保存目录",
+                "default": "./reports"
+              }
+            },
+            "required": ["record"]
+          },
+          "returns": {
+            "type": "str | None",
+            "description": "保存路径或 None"
+          },
+          "file_reference": "SKILL.md#L386",
+          "data_source": "东财 PDF",
+          "auth_required": false
+        },
+        {
+          "name": "ths_eps_forecast",
+          "layer": 2,
+          "description": "同花顺机构一致预期EPS（直连 basic.10jqka.com.cn）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "DataFrame",
+            "fields": ["年度", "预测机构数", "最小值", "均值", "最大值"],
+            "notes": ["均值 = 机构一致预期EPS"]
+          },
+          "file_reference": "SKILL.md#L434",
+          "data_source": "同花顺 basic",
+          "auth_required": false
+        },
+        {
+          "name": "iwencai_search",
+          "layer": 2,
+          "description": "iwencai NL语义搜索研报（需 API Key + X-Claw Headers）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "description": "自然语言查询"
+              },
+              "channel": {
+                "type": "string",
+                "description": "channel: report(研报) / announcement(公告) / news(新闻)",
+                "default": "report"
+              },
+              "size": {
+                "type": "integer",
+                "description": "返回数量（默认10，最大50）",
+                "default": 50
+              }
+            },
+            "required": ["query"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["uid", "title", "publish_date", "score", "extra (organization)"]
+          },
+          "file_reference": "SKILL.md#L487",
+          "data_source": "iwencai OpenAPI",
+          "auth_required": true
+        },
+        {
+          "name": "iwencai_query",
+          "layer": 2,
+          "description": "iwencai NL数据查询（结构化字段）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "description": "自然语言查询"
+              },
+              "page": {
+                "type": "integer",
+                "description": "页码",
+                "default": 1
+              },
+              "limit": {
+                "type": "integer",
+                "description": "每页数量",
+                "default": 50
+              }
+            },
+            "required": ["query"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["DataFrame-like rows"]
+          },
+          "file_reference": "SKILL.md#L515",
+          "data_source": "iwencai OpenAPI",
+          "auth_required": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "信号层",
+      "description": "热点/资金/龙虎榜信号",
+      "endpoints": [
+        {
+          "name": "ths_hot_reason",
+          "layer": 3,
+          "description": "同花顺当日强势股归因（零鉴权，73ms）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string",
+                "description": "YYYY-MM-DD 格式，None=今天"
+              }
+            }
+          },
+          "returns": {
+            "type": "DataFrame",
+            "fields": ["代码", "名称", "收盘价", "涨跌额", "涨幅%", "换手率%", "成交额", "成交量", "大单净量", "市场", "题材归因"],
+            "notes": ["题材归因是核心字段，人工运营tags"]
+          },
+          "file_reference": "SKILL.md#L577",
+          "data_source": "同花顺热点 HTTP",
+          "auth_required": false
+        },
+        {
+          "name": "hsgt_realtime",
+          "layer": 3,
+          "description": "同花顺北向资金当日实时分钟流向（沪股通+深股通）",
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": []
+          },
+          "returns": {
+            "type": "DataFrame",
+            "fields": ["time", "hgt_yi (沪股通累计净买入，亿元)", "sgt_yi (深股通累计净买入，亿元)"]
+          },
+          "file_reference": "SKILL.md#L660",
+          "data_source": "同花顺 hsgtApi",
+          "auth_required": false
+        },
+        {
+          "name": "baidu_concept_blocks",
+          "layer": 3,
+          "description": "百度股市通概念板块归属（行业/概念/地域三维分类）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "dict",
+            "fields": ["industry (行业)", "concept (概念)", "region (地域)", "concept_tags (概念标签列表)"]
+          },
+          "file_reference": "SKILL.md#L741",
+          "data_source": "百度股市通 HTTP",
+          "auth_required": false
+        },
+        {
+          "name": "eastmoney_fund_flow_minute",
+          "layer": 3,
+          "description": "东财 push2 个股资金流向（分钟级，当日盘中）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["time", "main_net", "small_net", "mid_net", "large_net", "super_net"],
+            "notes": ["单位：元"]
+          },
+          "file_reference": "SKILL.md#L792",
+          "data_source": "东财 push2",
+          "auth_required": false
+        },
+        {
+          "name": "dragon_tiger_board",
+          "layer": 3,
+          "description": "龙虎榜席位（个股上榜记录+买卖席位TOP5+机构动向）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "trade_date": {
+                "type": "string",
+                "description": "YYYY-MM-DD"
+              },
+              "look_back": {
+                "type": "integer",
+                "description": "回看天数",
+                "default": 30
+              }
+            },
+            "required": ["code", "trade_date"]
+          },
+          "returns": {
+            "type": "dict",
+            "fields": ["records (date, reason, net_buy, turnover)", "seats (buy, sell)", "institution (buy_amt, sell_amt, net_amt)"]
+          },
+          "file_reference": "SKILL.md#L853",
+          "data_source": "东财 datacenter",
+          "auth_required": false
+        },
+        {
+          "name": "lockup_expiry",
+          "layer": 3,
+          "description": "限售解禁日历（历史解禁+未来90天待解禁）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "trade_date": {
+                "type": "string",
+                "description": "YYYY-MM-DD"
+              },
+              "forward_days": {
+                "type": "integer",
+                "description": "向前天数",
+                "default": 90
+              }
+            },
+            "required": ["code", "trade_date"]
+          },
+          "returns": {
+            "type": "dict",
+            "fields": ["history (date, type, shares, ratio)", "upcoming (date, type, shares, ratio)"]
+          },
+          "file_reference": "SKILL.md#L946",
+          "data_source": "东财 datacenter",
+          "auth_required": false
+        },
+        {
+          "name": "industry_comparison",
+          "layer": 3,
+          "description": "东财行业板块涨跌幅排名（全市场行业轮动）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "top_n": {
+                "type": "integer",
+                "description": "返回前N名和后N名",
+                "default": 20
+              }
+            }
+          },
+          "returns": {
+            "type": "dict",
+            "fields": ["top (rank, name, change_pct, code, up_count, down_count, leader, leader_change)", "bottom", "total"]
+          },
+          "file_reference": "SKILL.md#L1011",
+          "data_source": "东财 push2",
+          "auth_required": false
+        },
+        {
+          "name": "daily_dragon_tiger",
+          "layer": 3,
+          "description": "全市场龙虎榜（当日所有上榜股票+净买额排名）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "trade_date": {
+                "type": "string",
+                "description": "YYYY-MM-DD（默认当日）"
+              },
+              "min_net_buy": {
+                "type": "number",
+                "description": "净买入下限（万元），None 不过滤"
+              }
+            }
+          },
+          "returns": {
+            "type": "dict",
+            "fields": ["date", "total_records", "stocks (code, name, reason, close, change_pct, net_buy_wan, buy_wan, sell_wan, turnover_pct)"]
+          },
+          "file_reference": "SKILL.md#L1067",
+          "data_source": "东财 datacenter",
+          "auth_required": false
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "资金面/筹码层",
+      "description": "融资融券/大宗交易/股东/分红/资金流",
+      "endpoints": [
+        {
+          "name": "margin_trading",
+          "layer": 4,
+          "description": "融资融券明细（日级）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "page_size": {
+                "type": "integer",
+                "description": "返回数量",
+                "default": 30
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["date", "rzye (融资余额)", "rzmre (融资买入)", "rzche (融资偿还)", "rqye (融券余额)", "rqmcl (融券卖出量)", "rqchl (融券偿还量)", "rzrqye (融资融券余额合计)"]
+          },
+          "file_reference": "SKILL.md#L1156",
+          "data_source": "东财 datacenter",
+          "auth_required": false
+        },
+        {
+          "name": "block_trade",
+          "layer": 4,
+          "description": "大宗交易记录",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "page_size": {
+                "type": "integer",
+                "description": "返回数量",
+                "default": 20
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["date", "price", "close", "premium_pct", "vol", "amount", "buyer", "seller"]
+          },
+          "file_reference": "SKILL.md#L1190",
+          "data_source": "东财 datacenter",
+          "auth_required": false
+        },
+        {
+          "name": "holder_num_change",
+          "layer": 4,
+          "description": "股东户数变化（季度级）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "page_size": {
+                "type": "integer",
+                "description": "返回数量",
+                "default": 10
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["date", "holder_num", "change_num", "change_ratio (环比%)", "avg_shares (户均持股)"]
+          },
+          "file_reference": "SKILL.md#L1227",
+          "data_source": "东财 datacenter",
+          "auth_required": false
+        },
+        {
+          "name": "dividend_history",
+          "layer": 4,
+          "description": "分红送转历史",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "page_size": {
+                "type": "integer",
+                "description": "返回数量",
+                "default": 20
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["date", "bonus_rmb (每股派息)", "transfer_ratio (每10股转增)", "bonus_ratio (每10股送股)", "plan (进度)"]
+          },
+          "file_reference": "SKILL.md#L1259",
+          "data_source": "东财 datacenter",
+          "auth_required": false
+        },
+        {
+          "name": "stock_fund_flow_120d",
+          "layer": 4,
+          "description": "个股资金流（120日，日级）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["date", "main_net", "small_net", "mid_net", "large_net", "super_net"],
+            "notes": ["单位：元"]
+          },
+          "file_reference": "SKILL.md#L1292",
+          "data_source": "东财 push2his",
+          "auth_required": false
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "新闻层",
+      "description": "个股新闻/财联社/全球资讯",
+      "endpoints": [
+        {
+          "name": "eastmoney_stock_news",
+          "layer": 5,
+          "description": "东财个股新闻（search-api-web JSONP接口）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "page_size": {
+                "type": "integer",
+                "description": "返回数量",
+                "default": 20
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["title", "content", "time", "source", "url"]
+          },
+          "file_reference": "SKILL.md#L1355",
+          "data_source": "东财 search-api-web",
+          "auth_required": false
+        },
+        {
+          "name": "cls_telegraph",
+          "layer": 5,
+          "description": "财联社快讯（全市场实时电报）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "page_size": {
+                "type": "integer",
+                "description": "返回数量",
+                "default": 50
+              }
+            }
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["title", "content", "time"]
+          },
+          "file_reference": "SKILL.md#L1405",
+          "data_source": "财联社 cls.cn",
+          "auth_required": false
+        },
+        {
+          "name": "eastmoney_global_news",
+          "layer": 5,
+          "description": "东财全球资讯（7x24滚动）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "page_size": {
+                "type": "integer",
+                "description": "返回数量",
+                "default": 50
+              }
+            }
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["title", "summary", "time"]
+          },
+          "file_reference": "SKILL.md#L1438",
+          "data_source": "东财 np-weblist",
+          "auth_required": false
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "基础数据层",
+      "description": "财务/F10/个股信息/财报三表",
+      "endpoints": [
+        {
+          "name": "mootdx_finance",
+          "layer": 6,
+          "description": "mootdx 财务快照（37字段季报数据）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "description": "6位股票代码"
+              }
+            },
+            "required": ["symbol"]
+          },
+          "returns": {
+            "type": "dict",
+            "fields": ["liutongguben", "zongguben", "eps", "bvps", "roe", "profit", "income", "meigujingzichan", "meigugongjijin", "meiguweifeipeili 等37个字段"]
+          },
+          "file_reference": "SKILL.md#L1481",
+          "data_source": "mootdx TCP",
+          "auth_required": false
+        },
+        {
+          "name": "mootdx_f10",
+          "layer": 6,
+          "description": "mootdx F10 公司文本资料（9大类）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "name": {
+                "type": "string",
+                "description": "类别：最新提示/公司概况/财务分析/股东研究/股本结构/资本运作/业内点评/行业分析/公司大事"
+              }
+            },
+            "required": ["symbol", "name"]
+          },
+          "returns": {
+            "type": "str",
+            "description": "文本内容"
+          },
+          "file_reference": "SKILL.md#L1495",
+          "data_source": "mootdx TCP",
+          "auth_required": false
+        },
+        {
+          "name": "eastmoney_stock_info",
+          "layer": 6,
+          "description": "东财个股基本面信息（直连 push2 API）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "dict",
+            "fields": ["code", "name", "industry", "total_shares", "float_shares", "mcap", "float_mcap", "list_date", "price"]
+          },
+          "file_reference": "SKILL.md#L1517",
+          "data_source": "东财 push2",
+          "auth_required": false
+        },
+        {
+          "name": "sina_financial_report",
+          "layer": 6,
+          "description": "新浪财报三表（资产负债表/利润表/现金流量表）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "report_type": {
+                "type": "string",
+                "description": "fzb(资产负债表) / lrb(利润表) / llb(现金流量表)",
+                "default": "lrb"
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "description": "按报告期排序的财务数据列表"
+          },
+          "file_reference": "SKILL.md#L1554",
+          "data_source": "新浪财经 quotes.sina.cn",
+          "auth_required": false
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "公告层",
+      "description": "巨潮公告全文检索",
+      "endpoints": [
+        {
+          "name": "cninfo_announcements",
+          "layer": 7,
+          "description": "巨潮公告全文检索（cninfo.com.cn）",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "6位股票代码"
+              },
+              "page_size": {
+                "type": "integer",
+                "description": "返回数量",
+                "default": 30
+              }
+            },
+            "required": ["code"]
+          },
+          "returns": {
+            "type": "list[dict]",
+            "fields": ["title", "type", "date", "url"]
+          },
+          "file_reference": "SKILL.md#L1611",
+          "data_source": "巨潮 cninfo.com.cn",
+          "auth_required": false
+        }
+      ]
+    }
+  ],
+  "helper_functions": [
+    {
+      "name": "eastmoney_datacenter",
+      "layer": "shared",
+      "description": "东财数据中心统一查询（龙虎榜/解禁/融资融券/大宗交易/股东户数/分红共用）",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "report_name": {"type": "string"},
+          "columns": {"type": "string", "default": "ALL"},
+          "filter_str": {"type": "string", "default": ""},
+          "page_size": {"type": "integer", "default": 50},
+          "sort_columns": {"type": "string", "default": ""},
+          "sort_types": {"type": "string", "default": "-1"}
+        },
+        "required": ["report_name"]
+      },
+      "file_reference": "SKILL.md#L154"
+    },
+    {
+      "name": "get_prefix",
+      "layer": "shared",
+      "description": "6位代码转市场前缀（sh/sz/bj）",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "string", "description": "6位股票代码"}
+        },
+        "required": ["code"]
+      },
+      "file_reference": "SKILL.md#L122"
+    },
+    {
+      "name": "_cninfo_ts_to_date",
+      "layer": "shared",
+      "description": "巨潮 Unix 毫秒时间戳转日期字符串",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ts": {"type": ["integer", "float", "string"]}
+        },
+        "required": ["ts"]
+      },
+      "file_reference": "SKILL.md#L1605"
+    },
+    {
+      "name": "dedup_articles",
+      "layer": "shared",
+      "description": "iwencai 搜索结果去重（同uid仅保留score最高）",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "articles": {"type": "array"}
+        },
+        "required": ["articles"]
+      },
+      "file_reference": "SKILL.md#L543"
+    },
+    {
+      "name": "_northbound_cache_path",
+      "layer": "shared",
+      "description": "北向资金本地 CSV 缓存路径",
+      "parameters": {"type": "object", "properties": {}},
+      "file_reference": "SKILL.md#L682"
+    },
+    {
+      "name": "_save_northbound_snapshot",
+      "layer": "shared",
+      "description": "写入北向资金缓存",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "date": {"type": "string"},
+          "hgt": {"type": "number"},
+          "sgt": {"type": "number"}
+        },
+        "required": ["date", "hgt", "sgt"]
+      },
+      "file_reference": "SKILL.md#L688"
+    },
+    {
+      "name": "_load_northbound_history",
+      "layer": "shared",
+      "description": "读取北向资金历史",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "n": {"type": "integer", "default": 20}
+        }
+      },
+      "file_reference": "SKILL.md#L703"
+    }
+  ]
+}
