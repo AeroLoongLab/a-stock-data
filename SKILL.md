@@ -1493,8 +1493,13 @@ def cls_telegraph(page_size: int = 50) -> list[dict]:
     url = "https://www.cls.cn/nodeapi/telegraphList"
     params = {"rn": str(page_size), "page": "1"}
     headers = {"User-Agent": UA, "Referer": "https://www.cls.cn/"}
-    r = requests.get(url, params=params, headers=headers, timeout=10)
-    d = r.json()
+    try:
+        r = requests.get(url, params=params, headers=headers, timeout=10)
+        if r.status_code != 200:
+            return []
+        d = r.json()
+    except Exception:
+        return []  # API 不可用时返回空列表，不阻塞流程
 
     rows = []
     for item in d.get("data", {}).get("roll_data", []):
