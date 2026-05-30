@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "name": "a-stock-data",
-  "description": "A股全栈数据工具包 - 28个端点函数索引",
+  "description": "A股全栈数据工具包 - 29个端点函数索引",
   "version": "3.1",
   "layers": [
     {
@@ -37,7 +37,7 @@
             "type": "DataFrame",
             "fields": ["open", "close", "high", "low", "vol", "amount", "datetime"]
           },
-          "file_reference": "SKILL.md#L180",
+          "file_reference": "SKILL.md#L183",
           "data_source": "mootdx TCP",
           "auth_required": false
         },
@@ -60,7 +60,7 @@
             "type": "dict[str, dict]",
             "fields": ["name", "price", "pe_ttm", "pb", "mcap_yi", "float_mcap_yi", "turnover_pct", "limit_up", "limit_down", "change_amt", "change_pct", "high", "low", "last_close", "open", "amplitude_pct", "vol_ratio", "pe_static"]
           },
-          "file_reference": "SKILL.md#L208",
+          "file_reference": "SKILL.md#L211",
           "data_source": "腾讯财经 HTTP",
           "auth_required": false
         },
@@ -87,7 +87,7 @@
             "type": "dict",
             "fields": ["keys (含 ma5avgprice, ma10avgprice, ma20avgprice)", "rows (time, open, close, high, low, volume, amount)"]
           },
-          "file_reference": "SKILL.md#L310",
+          "file_reference": "SKILL.md#L313",
           "data_source": "百度股市通 HTTP",
           "auth_required": false
         }
@@ -680,7 +680,7 @@
             "type": "dict",
             "fields": ["liutongguben", "zongguben", "eps", "bvps", "roe", "profit", "income", "meigujingzichan", "meigugongjijin", "meiguweifeipeili 等37个字段"]
           },
-          "file_reference": "SKILL.md#L1481",
+          "file_reference": "SKILL.md#L1478",
           "data_source": "mootdx TCP",
           "auth_required": false
         },
@@ -706,7 +706,7 @@
             "type": "str",
             "description": "文本内容"
           },
-          "file_reference": "SKILL.md#L1495",
+          "file_reference": "SKILL.md#L1493",
           "data_source": "mootdx TCP",
           "auth_required": false
         },
@@ -801,6 +801,9 @@
       "name": "eastmoney_datacenter",
       "layer": "shared",
       "description": "东财数据中心统一查询（龙虎榜/解禁/融资融券/大宗交易/股东户数/分红共用）",
+      "returns": "list[dict]",
+      "data_source": "Eastmoney datacenter API",
+      "auth_required": false,
       "parameters": {
         "type": "object",
         "properties": {
@@ -819,6 +822,9 @@
       "name": "get_prefix",
       "layer": "shared",
       "description": "6位代码转市场前缀（sh/sz/bj）",
+      "returns": "str",
+      "data_source": "local utility",
+      "auth_required": false,
       "parameters": {
         "type": "object",
         "properties": {
@@ -832,6 +838,9 @@
       "name": "_cninfo_ts_to_date",
       "layer": "shared",
       "description": "巨潮 Unix 毫秒时间戳转日期字符串",
+      "returns": "str",
+      "data_source": "local utility",
+      "auth_required": false,
       "parameters": {
         "type": "object",
         "properties": {
@@ -845,6 +854,9 @@
       "name": "dedup_articles",
       "layer": "shared",
       "description": "iwencai 搜索结果去重（同uid仅保留score最高）",
+      "returns": "list[dict]",
+      "data_source": "local utility",
+      "auth_required": false,
       "parameters": {
         "type": "object",
         "properties": {
@@ -858,6 +870,9 @@
       "name": "_northbound_cache_path",
       "layer": "shared",
       "description": "北向资金本地 CSV 缓存路径",
+      "returns": "Path",
+      "data_source": "local utility",
+      "auth_required": false,
       "parameters": {"type": "object", "properties": {}},
       "file_reference": "SKILL.md#L682"
     },
@@ -865,6 +880,9 @@
       "name": "_save_northbound_snapshot",
       "layer": "shared",
       "description": "写入北向资金缓存",
+      "returns": "None",
+      "data_source": "local utility",
+      "auth_required": false,
       "parameters": {
         "type": "object",
         "properties": {
@@ -880,6 +898,9 @@
       "name": "_load_northbound_history",
       "layer": "shared",
       "description": "读取北向资金历史",
+      "returns": "pd.DataFrame",
+      "data_source": "local cache",
+      "auth_required": false,
       "parameters": {
         "type": "object",
         "properties": {
