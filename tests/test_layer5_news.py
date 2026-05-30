@@ -26,6 +26,8 @@ def extract_function(name: str):
         if not func_match:
             func_match = re.search(rf'async def {name}\(', code)
 
+        # code_before_func includes everything from block start to func start
+        # We only want the PART BEFORE the func starts (imports etc)
         code_before_func = code[:func_match.start()]
         func_and_after = code[func_match.start():]
 
